@@ -67,18 +67,54 @@ logger.info('Environment variables loaded:', {
   PORT: process.env.PORT,
   NODE_ENV: process.env.NODE_ENV,
   GEMINI_API_KEY_EXISTS: !!process.env.GEMINI_API_KEY,
-  GEMINI_API_KEY_LENGTH: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0
+  GEMINI_API_KEY_LENGTH: process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.length : 0,
+  APP_SECRET_KEY_EXISTS: !!process.env.APP_SECRET_KEY,
+  APP_SECRET_KEY_LENGTH: process.env.APP_SECRET_KEY ? process.env.APP_SECRET_KEY.length : 0
 });
 
 // Gemini API configuration from environment
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
+// App authentication key
+const APP_SECRET_KEY = process.env.APP_SECRET_KEY || 'c69bc22a73be7d78';
+
 // Add validation
 if (!GEMINI_API_KEY) {
   logger.error('GEMINI_API_KEY is not set in environment variables');
   process.exit(1);
 }
+
+// Authentication middleware
+const authenticateApp = (req, res, next) => {
+  const appKey = req.headers['x-app-secret'];
+  
+  if (!appKey) {
+    logger.warn('Request without app secret key', {
+      url: req.url,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+    return res.status(401).json({ error: 'App secret key required' });
+  }
+  
+  if (appKey !== APP_SECRET_KEY) {
+    logger.warn('Invalid app secret key', {
+      url: req.url,
+      ip: req.ip,
+      providedKey: appKey.substring(0, 8) + '...',
+      userAgent: req.get('User-Agent')
+    });
+    return res.status(401).json({ error: 'Invalid app secret key' });
+  }
+  
+  logger.info('Request authenticated successfully', {
+    url: req.url,
+    ip: req.ip
+  });
+  
+  next();
+};
 
 // Security middleware
 app.use(helmet());
@@ -143,7 +179,7 @@ app.post('/test', (req, res) => {
 });
 
 // Gemini API test endpoint
-app.post('/gemini-test', async (req, res) => {
+app.post('/gemini-test', authenticateApp, async (req, res) => {
   const { prompt } = req.body;
   
   logger.info('Gemini API test endpoint called', { prompt });
