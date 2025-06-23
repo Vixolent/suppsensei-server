@@ -124,7 +124,7 @@ app.use((req, res, next) => {
 
 app.get('/', (req, res) => {
   logger.info('Root endpoint accessed');
-  res.send('Hello, world!');
+  res.send('Hello, world!!!!!!!!!!!!!!!!!!!!!!!');
 });
 
 // Test endpoint for Marco/Polo
